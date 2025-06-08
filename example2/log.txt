@@ -1,0 +1,12 @@
+log.txt
+Makefile
+makelog
+makelog.c
+pipes
+pipes.c
+printns
+printns.c
+typeclient
+typeclient.c
+typeserver
+typeserver.c
