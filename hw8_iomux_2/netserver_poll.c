@@ -96,7 +96,7 @@ int main (int argc, char **argv)
 
   pthread_create(&thread_io, NULL, blocking_io, NULL);
 
-  printf("Thread started for io\n");
+  printf("Thread started for io..\n");
 
   memset(&fds, 0 , sizeof(fds));
   fds.fd = new_sd;
@@ -117,15 +117,17 @@ int main (int argc, char **argv)
       printf("Sending message..\n");
       rc = send(fds.fd, send_buffer, sizeof(send_buffer), 0);
 
-      if(rc < 0 && errno != EWOULDBLOCK)
-        printf("Error sending, errno = %d\n", errno);
-      else
+      if(rc < 0)
       {
-        printf("EWOULDBLOCK errno..\n");
-        printf("After EWOULDBLOCK we will wait for POLLOUT, need to track how much we've send and keep the rest for next time..\n");
-        printf("Hope that will be implemented later..\n");
+        if (errno == EWOULDBLOCK)
+        { 
+          printf("errno = EWOULDBLOCK..\n");
+        }
+        else
+          printf("Error sending, errno = %d\n", errno);
       }
-      send_flag = 0;
+      else
+        send_flag = 0;
     }
 
     if(fds.revents == 0)
@@ -169,15 +171,22 @@ int main (int argc, char **argv)
           printf("Sending message..\n");
           rc = send(fds.fd, send_buffer, sizeof(send_buffer), 0);
 
-          if(rc < 0 && errno != EWOULDBLOCK)
-            printf("Error sending, errno = %d\n", errno);
-
-          send_flag = 0;
+          if(rc < 0)
+          {
+            if (errno == EWOULDBLOCK)
+            {
+              printf("errno = EWOULDBLOCK..\n");
+            }
+            else
+              printf("Error sending, errno = %d\n", errno);
+          }
+          else
+            send_flag = 0;
         }
       }
     }
     sleep(1);
-  } while(1);
+  } while((strncmp(send_buffer, "quit", 4) != 0) && (strncmp(recv_buffer, "quit", 4) != 0));
 
   close(new_sd);
   close(listen_sd);
