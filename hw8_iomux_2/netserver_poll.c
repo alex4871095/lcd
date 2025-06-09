@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #define SERVER_PORT 12345
 #define BUF_SIZE 80
@@ -16,7 +17,7 @@
 int send_flag = 0;
 char send_buffer[BUF_SIZE];
 
-void blocking_io()
+void* blocking_io(void *arg)
 {
   do
   {
@@ -24,7 +25,7 @@ void blocking_io()
     memset(send_buffer, 0, BUF_SIZE);
     fgets(send_buffer, BUF_SIZE-1, stdin);
     send_flag = 1;
-    sleep(1000);
+    sleep(1);
   } while(1);
 }
 
@@ -35,6 +36,7 @@ int main (int argc, char **argv)
   char recv_buffer[BUF_SIZE];
   struct sockaddr_in6 addr;
   struct pollfd fds;
+  pthread_t thread_io;
 
   listen_sd = socket(AF_INET6, SOCK_STREAM, 0);
   if (listen_sd < 0)
@@ -92,19 +94,17 @@ int main (int argc, char **argv)
     exit(-1);
   }
 
-  pid = fork();
-  if(pid == 0)
-    blocking_io();
+  pthread_create(&thread_io, NULL, blocking_io, NULL);
 
-  printf("Forked for stdin read, continue..\n");
+  printf("Thread started for io\n");
 
   memset(&fds, 0 , sizeof(fds));
   fds.fd = new_sd;
-  fds.events = POLLIN||POLLOUT;
+  fds.events = POLLIN | POLLOUT;
 
   do
   {
-    rc = poll(&fds, 1, 100);
+    rc = poll(&fds, 1, 1000);
 
     if (rc < 0)
     {
@@ -112,23 +112,24 @@ int main (int argc, char **argv)
       break;
     }
 
+    if(send_flag == 1)
+    {
+      printf("Sending message..\n");
+      rc = send(fds.fd, send_buffer, sizeof(send_buffer), 0);
+
+      if(rc < 0 && errno != EWOULDBLOCK)
+        printf("Error sending, errno = %d\n", errno);
+      else
+      {
+        printf("EWOULDBLOCK errno..\n");
+        printf("After EWOULDBLOCK we will wait for POLLOUT, need to track how much we've send and keep the rest for next time..\n");
+        printf("Hope that will be implemented later..\n");
+      }
+      send_flag = 0;
+    }
+
     if(fds.revents == 0)
     {
-      if(send_flag)
-      {
-        printf("Sending message..\n");
-        rc = send(fds.fd, send_buffer, sizeof(send_buffer), 0);
-
-        if(rc < 0 && errno != EWOULDBLOCK)
-          printf("Error sending, errno = %d\n", errno);
-        else
-        {
-          printf("EWOULDBLOCK errno..\n");
-          printf("After EWOULDBLOCK we will wait for POLLOUT, need to track how much we've send and keep the rest for next time..\n");
-          printf("Hope that will be implemented later..\n");
-        }
-        send_flag = 0;
-      }
       continue;
     }
     else
@@ -172,6 +173,7 @@ int main (int argc, char **argv)
         send_flag = 0;
       }
     }
+    sleep(1);
   } while(1);
 
   close(new_sd);
