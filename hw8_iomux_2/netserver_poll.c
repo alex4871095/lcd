@@ -164,13 +164,16 @@ int main (int argc, char **argv)
 
       if(fds.revents & POLLOUT)
       {
-        printf("Sending message..\n");
-        rc = send(fds.fd, send_buffer, sizeof(send_buffer), 0);
+        if(send_flag == 1)
+        {
+          printf("Sending message..\n");
+          rc = send(fds.fd, send_buffer, sizeof(send_buffer), 0);
 
-        if(rc < 0 && errno != EWOULDBLOCK)
-          printf("Error sending, errno = %d\n", errno);
+          if(rc < 0 && errno != EWOULDBLOCK)
+            printf("Error sending, errno = %d\n", errno);
 
-        send_flag = 0;
+          send_flag = 0;
+        }
       }
     }
     sleep(1);

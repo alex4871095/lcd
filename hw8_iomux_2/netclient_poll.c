@@ -31,7 +31,7 @@ void* blocking_io(void *arg)
 
 int main (int argc, char **argv)
 {
-  int sock, port, rc, pid, timeout, s, on = 1;
+  int port, rc, pid, timeout, s, on = 1;
   int new_sd = -1;
   char recv_buffer[BUF_SIZE];
   struct sockaddr_in6 serv_addr;
@@ -47,14 +47,14 @@ int main (int argc, char **argv)
 
   port = atoi(argv[2]);
 
-  sock = socket(AF_INET6, SOCK_STREAM, 0);
-  if (sock < 0)
+  new_sd = socket(AF_INET6, SOCK_STREAM, 0);
+  if (new_sd < 0)
   {
     printf("socket() failed: %d", errno);
     return EXIT_FAILURE;
   }
 
-  rc = fcntl(sock, F_SETFL, O_NONBLOCK);
+  rc = fcntl(new_sd, F_SETFL, O_NONBLOCK);
 
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_INET6;
@@ -71,16 +71,14 @@ int main (int argc, char **argv)
 
   for (rp = result; rp != NULL; rp = rp->ai_next)
   {
-    new_sd = connect(sock, rp->ai_addr, rp->ai_addrlen);
-    if(new_sd < 0)
+    rc = connect(new_sd, rp->ai_addr, rp->ai_addrlen);
+    if(rc < 0)
     {
       continue;
     }
     else
       break;
   }
-
-  rc = fcntl(new_sd, F_SETFL, O_NONBLOCK);
 
   printf("Connected to remote server\n");
 
@@ -149,18 +147,21 @@ int main (int argc, char **argv)
           break;
         }
 
-        printf("Msg from client: %s\n", recv_buffer);
+        printf("Msg from server: %s\n", recv_buffer);
       }
 
       if(fds.revents & POLLOUT)
       {
-        printf("Sending message..\n");
-        rc = send(fds.fd, send_buffer, sizeof(send_buffer), 0);
+        if(send_flag == 1)
+        {
+          printf("Sending message..\n");
+          rc = send(fds.fd, send_buffer, sizeof(send_buffer), 0);
 
-        if(rc < 0 && errno != EWOULDBLOCK)
-          printf("Error sending, errno = %d\n", errno);
+          if(rc < 0 && errno != EWOULDBLOCK)
+            printf("Error sending, errno = %d\n", errno);
 
-        send_flag = 0;
+          send_flag = 0;
+        }
       }
     }
     sleep(1);
